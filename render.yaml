@@ -1,0 +1,47 @@
+# Blueprint Render — 2 services déployés depuis ce repo.
+#   1) edpulse-api  : web service Node (NestJS)  -> sert GET /products
+#   2) edpulse-web  : static site (React/Vite)   -> sert l'interface
+#
+# Les deux variables qui se référencent mutuellement (URL de l'API côté front,
+# origine autorisée CORS côté API) sont en `sync: false` : Render les demande
+# une fois dans le dashboard au 1er déploiement (voir procédure dans le README).
+services:
+  - type: web
+    name: edpulse-api
+    runtime: node
+    plan: free
+    rootDir: api
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '20'
+      - key: CACHE_TTL_MS
+        value: '30000'
+      - key: CACHE_MAX_ENTRIES
+        value: '100'
+      # Origine du front autorisée par CORS. À renseigner avec l'URL publique
+      # du service edpulse-web (ex: https://edpulse-web.onrender.com).
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: web
+    name: edpulse-web
+    runtime: static
+    plan: free
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      # URL publique de l'API. À renseigner avec l'URL du service edpulse-api
+      # (ex: https://edpulse-api.onrender.com).
+      - key: VITE_API_URL
+        sync: false
+    # Filet de sécurité SPA : toute route retombe sur index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
