@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CacheStore } from './cache-store.interface';
+import { CacheStore } from '../boundaries/cache-store.port';
 
 interface CacheEntry<T> {
   value: T;
@@ -15,7 +15,8 @@ export interface InMemoryCacheOptions {
 }
 
 /**
- * Cache en mémoire avec TTL + éviction LRU bornée.
+ * Anneau FRAMEWORKS & DRIVERS (infrastructure) : implémentation in-memory du
+ * gateway {@link CacheStore}. Cache avec TTL + éviction LRU bornée.
  *
  * Choix Map : elle conserve l'ordre d'insertion, ce qui donne une LRU en O(1)
  * — on ré-insère une clé lue pour la marquer « récente », et on évince la

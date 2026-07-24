@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Product, StockStatus } from '../domain/product.entity';
+import { Product, StockStatus } from '../../core/entities/product';
 
 /** Métadonnées de pagination renvoyées avec chaque page. */
 export class PaginationMeta {

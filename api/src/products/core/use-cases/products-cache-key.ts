@@ -1,15 +1,15 @@
-import { QueryProductsDto } from './dto/query-products.dto';
+import { ListProductsQuery } from './boundaries/list-products.port';
 
 /**
- * Construit une clé de cache déterministe à partir des params de query.
+ * Construit une clé de cache déterministe à partir de la requête (domaine).
  *
- * Normalisation : valeurs par défaut déjà résolues par le DTO, ordre des clés
+ * Normalisation : valeurs par défaut déjà résolues en amont, ordre des clés
  * stable, catégorie en minuscules + trim. Ainsi `?page=1` et
  * `?limit=10&page=1` produisent la MÊME clé et tapent la même entrée.
  */
-export function buildProductsCacheKey(query: QueryProductsDto): string {
+export function buildProductsCacheKey(query: ListProductsQuery): string {
   const category = query.category?.trim().toLowerCase() ?? '';
-  const stockStatus = query.stock_status ?? '';
+  const stockStatus = query.stockStatus ?? '';
 
   return [
     `page=${query.page}`,

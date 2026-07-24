@@ -6,9 +6,9 @@ mémoire (aucune base de données, conformément à l'énoncé).
 
 > **Note sur l'énoncé** — Le titre de la Partie 1 mentionne « SQL », mais les
 > contraintes imposent explicitement « pas de base de données ». J'applique la
-> contrainte : stockage **in-memory**. Le repository étant caché derrière
-> l'interface `ProductRepository` (injectée par token), une implémentation SQL
-> se substituerait **sans toucher une ligne du service** — voir
+> contrainte : stockage **in-memory**. Le repository étant caché derrière le
+> port `ProductRepository` (injecté par token), une implémentation SQL se
+> substituerait **sans toucher une ligne du use case** — voir
 > [Décisions d'architecture](#décisions-darchitecture).
 
 ---
@@ -29,22 +29,28 @@ mémoire (aucune base de données, conformément à l'énoncé).
 
 ```
 edpulse-test/
-├─ api/                         # Backend NestJS
+├─ api/                         # Backend NestJS — Clean Architecture (anneaux concentriques)
 │  ├─ src/
 │  │  ├─ main.ts                # bootstrap : ValidationPipe, CORS, Swagger, filter
 │  │  ├─ app.module.ts
 │  │  ├─ health.controller.ts   # GET /health (health check PaaS)
 │  │  ├─ common/
-│  │  │  ├─ cache/              # CacheStore (interface) + impl in-memory TTL/LRU
+│  │  │  ├─ cache/
+│  │  │  │  ├─ boundaries/      # CacheStore (port) + token
+│  │  │  │  └─ infrastructure/  # impl in-memory TTL/LRU (+ spec)
 │  │  │  └─ filters/            # exception filter global (format homogène)
-│  │  └─ products/
-│  │     ├─ products.controller.ts   # HTTP only, pose X-Cache
-│  │     ├─ products.service.ts      # use case : cache -> repo -> {data, meta}
-│  │     ├─ products.cache-key.ts    # clé de cache normalisée
-│  │     ├─ dto/                      # QueryProductsDto + types de réponse
-│  │     ├─ domain/                   # entity, enum, ProductRepository (interface)
-│  │     ├─ repositories/             # impl in-memory du repository
-│  │     └─ data/products.seed.ts     # ~72 produits
+│  │  └─ products/              # bounded context, du cœur vers le bord :
+│  │     ├─ core/                     # cœur framework-free (entities + use-cases)
+│  │     │  ├─ entities/              # Product + StockStatus (centre, zéro dépendance)
+│  │     │  └─ use-cases/             # ListProductsUseCase (classe pure, sans NestJS)
+│  │     │     ├─ boundaries/         # ports : ListProducts (entrée) + ProductRepository (sortie)
+│  │     │     └─ products-cache-key.ts  # clé de cache normalisée
+│  │     ├─ interface-adapters/
+│  │     │  ├─ controllers/           # HTTP only, traduit DTO <-> domaine, pose X-Cache
+│  │     │  └─ dto/                    # QueryProductsDto + enveloppe { data, meta }
+│  │     ├─ infrastructure/
+│  │     │  └─ persistence/           # impl in-memory du repository + seed (~72 produits)
+│  │     └─ products.module.ts        # composition root (câblage des ports par token)
 │  └─ test/                     # e2e supertest
 │
 ├─ web/                         # Frontend React + Vite
@@ -57,7 +63,7 @@ edpulse-test/
 │     └─ components/             # ProductList/Table/Card, Pagination, Filters, états
 │
 ├─ render.yaml                  # blueprint de déploiement Render
-└─ docs/ai-journal.md           # journal des échanges avec Claude (base de AI_USAGE.md)
+└─ AI_USAGE.md                  # usage de l'IA (Claude) : démarche, revues, décisions
 ```
 
 ---
@@ -123,20 +129,27 @@ curl -i "http://localhost:3000/products?page=0"
 
 ### Principes SOLID appliqués
 
-- **SRP (responsabilité unique)** — chaque couche a un seul rôle : le
-  `ProductsController` ne fait que du HTTP (parse la query, pose `X-Cache`) ; le
-  `ProductsService` porte le use case (cache → repository → assemblage) ; le
-  repository ne fait que filtrer/trancher les données. Aucune logique métier
-  dans le controller.
-- **DIP (inversion de dépendance)** — le service dépend des **interfaces**
-  `ProductRepository` et `CacheStore`, jamais des implémentations concrètes. Le
-  câblage se fait par token (`Symbol`) dans `products.module.ts`. C'est la
-  réponse directe à l'ambiguïté « SQL » : remplacer `InMemoryProductRepository`
-  par une impl SQL ne touche ni le service ni le controller.
+- **SRP (responsabilité unique)** — chaque anneau a un seul rôle : le
+  `ProductsController` (interface-adapter) ne fait que du HTTP (traduit le DTO en
+  modèle de domaine, pose `X-Cache`) ; le `ListProductsUseCase` porte le scénario
+  applicatif (cache → repository → assemblage de la page) sans connaître HTTP ; le
+  repository (infrastructure) ne fait que filtrer/trancher les données. Aucune
+  logique métier dans le controller, aucun DTO dans le use case.
+- **DIP (inversion de dépendance) + règle de dépendance** — les anneaux internes
+  ne dépendent que d'**abstractions** : le use case dépend des ports
+  `ProductRepository` et `CacheStore`, jamais des implémentations concrètes ; le
+  controller dépend du port d'entrée `ListProducts`, pas du use case concret. Le
+  câblage se fait par token (`Symbol`) dans le composition root
+  (`products.module.ts`). C'est la réponse directe à l'ambiguïté « SQL » :
+  remplacer `InMemoryProductRepository` par une impl SQL ne touche ni le use case
+  ni le controller. Le `ListProductsUseCase` est d'ailleurs une **classe pure sans
+  décorateur NestJS** (aucun `@Injectable`/`@Inject`) : le composition root
+  l'instancie par `useFactory`, ce qui garde l'anneau applicatif (`core/`)
+  totalement *framework-free* et testable par un simple `new`.
 - **OCP (ouvert/fermé)** — changer de source de données ou de cache (Redis)
   = ajouter une classe + changer une ligne de binding, sans modifier le use case.
-- **ISP / LSP** — interfaces minimales (`findManyPaginated`, `get/set/clear`) ;
-  toute implémentation respectant le contrat est substituable.
+- **ISP / LSP** — ports minimaux (`findManyPaginated`, `get/set/clear`,
+  `execute`) ; toute implémentation respectant le contrat est substituable.
 
 ### Autres choix (et alternatives écartées)
 
@@ -184,7 +197,7 @@ npm run dev               # http://localhost:5173
 
 ```bash
 cd api
-npm test          # unitaires (service + cache) — 18 tests
+npm test          # unitaires (use case + cache) — 18 tests
 npm run test:e2e  # e2e supertest sur l'endpoint — 7 tests
 npm run lint      # ESLint (zéro warning toléré)
 ```

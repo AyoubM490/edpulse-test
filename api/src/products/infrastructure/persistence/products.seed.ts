@@ -1,4 +1,4 @@
-import { Product, StockStatus } from '../domain/product.entity';
+import { Product, StockStatus } from '../../core/entities/product';
 
 /**
  * Jeu de données in-memory. Source de vérité unique (l'énoncé interdit toute DB).

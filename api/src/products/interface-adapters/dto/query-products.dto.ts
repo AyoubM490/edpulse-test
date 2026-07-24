@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { StockStatus } from '../domain/product.entity';
+import { StockStatus } from '../../core/entities/product';
 
 /**
  * Params de query validés et typés de GET /products.

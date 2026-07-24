@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { Product } from '../domain/product.entity';
+import { Product } from '../../core/entities/product';
 import {
   FindProductsCriteria,
   PaginatedProducts,
   ProductRepository,
-} from '../domain/product-repository.interface';
-import { PRODUCTS_SEED } from '../data/products.seed';
+} from '../../core/use-cases/boundaries/product-repository.port';
+import { PRODUCTS_SEED } from './products.seed';
 
 /**
- * Implémentation in-memory de {@link ProductRepository}.
+ * Anneau FRAMEWORKS & DRIVERS (infrastructure) : implémentation concrète du
+ * gateway {@link ProductRepository}. Détail remplaçable — brancher une impl SQL
+ * (même boundary) ne change pas une ligne du use case.
  *
  * Responsabilité unique (SRP) : filtrer + trancher le tableau en mémoire.
- * Aucune connaissance du cache, du HTTP ou de la validation — ces
- * préoccupations vivent ailleurs. Remplacer cette classe par une impl SQL
- * (même interface) suffit à changer la source de données.
+ * Aucune connaissance du cache, du HTTP ou de la validation.
  */
 @Injectable()
 export class InMemoryProductRepository implements ProductRepository {

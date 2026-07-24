@@ -1,9 +1,9 @@
-import { Product, StockStatus } from './product.entity';
+import { Product, StockStatus } from '../../entities/product';
 
 /**
  * Critères de filtrage et de pagination transmis au repository.
- * La résolution des valeurs par défaut (page/limit) est faite en amont (DTO),
- * le repository reçoit des valeurs déjà normalisées.
+ * La résolution des valeurs par défaut (page/limit) est faite en amont
+ * (interface-adapter + DTO) ; le repository reçoit des valeurs normalisées.
  */
 export interface FindProductsCriteria {
   page: number;
@@ -22,12 +22,11 @@ export interface PaginatedProducts {
 }
 
 /**
- * Abstraction de la source de données produits.
- *
- * SOLID / DIP : le service (use case) dépend de cette interface, jamais d'une
- * implémentation concrète. Substituer l'impl in-memory par une impl SQL/ORM
- * ne change pas une ligne du service. Injectée via le token ci-dessous
- * (une interface TS n'existe pas au runtime, donc pas utilisable comme token DI).
+ * Boundary de SORTIE (gateway) du use case : abstraction de la source de
+ * données produits. Définie dans l'anneau use-cases (donc au centre) et
+ * IMPLÉMENTÉE dans l'infrastructure (anneau externe) : la dépendance de code
+ * pointe vers l'intérieur (règle de dépendance), pas l'inverse.
+ * Injectée via le token ci-dessous (une interface TS n'existe pas au runtime).
  */
 export interface ProductRepository {
   findManyPaginated(criteria: FindProductsCriteria): PaginatedProducts;
