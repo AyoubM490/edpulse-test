@@ -30,7 +30,7 @@ services:
   - type: web
     name: edpulse-web
     runtime: static
-    plan: free
+    # (pas de champ `plan` : un site statique Render est toujours gratuit)
     rootDir: web
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
